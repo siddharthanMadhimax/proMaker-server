@@ -1,10 +1,15 @@
 const formDataScehma = require("../../models/formDataModel")
 const cloudinary=require('cloudinary').v2
-
+const streamifier = require("streamifier");
+const ImageSchema = require("../../models/ImageModel")
+const skillsStyels = require("../../models/stylesModel");
+const { message } = require("antd");
+const sectionStylesSchema = require("../../models/sectionStyles");
 const _exports={}
 
 _exports.formData=async(request,reply)=>{
     const {email}=request.user
+    const {name}=request.user
     try{
         const values=request.body
         console.log(values)
@@ -12,7 +17,7 @@ _exports.formData=async(request,reply)=>{
         const SkillsToAdd=skills.split(",").map(skill=>skill.trim())
       const skillsData=SkillsToAdd.map(skill=>({name:skill}))
         console.log(SkillsToAdd)
-       
+        values.username=name
         values.email=email
         values.skills=skillsData
         
@@ -26,10 +31,11 @@ _exports.formData=async(request,reply)=>{
 
 _exports.getAlldatas=async(request,reply)=>{
     
+    const {username}=request.params
+    console.log("user name da",username)
     
-    const {email}=request.user
     try{
-        const alldata=await formDataScehma.find({email})
+        const alldata=await formDataScehma.find({username})
         return reply.send({data:alldata})
     }catch(err){
         console.log(err)
@@ -53,9 +59,7 @@ _exports.formCheck=async(request,reply)=>{
         console.log(err)
     }
 }
-const streamifier = require("streamifier");
-const ImageSchema = require("../../models/ImageModel")
-const { request } = require("http")
+
 
 _exports.uploadImage = async (request, reply) => {
     const {email}=request.user
@@ -156,5 +160,101 @@ _exports.GetImageUrl=async(request,reply)=>{
         console.log("error",err)
     }
 }
+
+_exports.SetGenerate=async(request,reply)=>{
+    const {email}=request.user
+    try{
+        const setGerenateTrue=await formDataScehma.findOneAndUpdate({email},
+            {
+                $set:{
+                    generate:true
+                }
+            }
+        )
+        return reply.status(200).send({message:"success",success:true})
+    }catch(err){
+        console.log(err)
+    }
+}
+
+
+_exports.skillStyles = async (request, reply) => {
+    try {
+        const { email } = request.user;
+        const { styles } = request.body;
+
+        console.log("Incoming styles:", styles);
+        styles.email = email;
+
+        const finduser = await skillsStyels.findOne({ email });
+
+        if (!finduser) {
+            await skillsStyels.create(styles);
+            return reply.status(200).send({ message: "success", success: false });
+        } else {
+            const update = await skillsStyels.findOneAndUpdate(
+                { email },
+                {
+                    $set: {
+                        bgColor: styles.bgColor,
+                        textColor: styles.textColor,
+                        borderColor: styles.borderColor
+                    }
+                },
+                { new: true } // Return the updated document
+            );
+
+            console.log("Updated Document:", update);
+            return reply.status(200).send({ message: "success", success: true });
+        }
+    } catch (err) {
+        console.log("Error:", err);
+        return reply.status(500).send({ message: "Server Error", success: false });
+    }
+};
+
+
+_exports.getSkillsStyles=async(request,reply)=>{
+    try{
+        const {email}=request.user
+        if(!email){
+            return reply.send({message:"please login again"})
+        }
+        const styles=await skillsStyels.findOne({email})
+        // console.log("styles skill",styles)
+        return reply.status(200).send({message:"success",success:true,data:styles})
+    }catch(err){
+        console.log(err)
+    }
+}
+_exports.addSectionStyles = async (request, reply) => {
+    const { email } = request.user;
+
+    try {
+        const { styles } = request.body;
+        styles.email = email;  // Ensure email is included
+        console.log("section styles", styles);
+
+        const { SectionName } = styles; // Extract SectionName from styles
+
+        const checkExistingData = await sectionStylesSchema.findOne({ email, SectionName });
+
+        if (!checkExistingData) {
+            await sectionStylesSchema.create(styles);
+            return reply.status(200).send({ message: "Created Successfully", success: true });
+        } else {
+            await sectionStylesSchema.findOneAndUpdate(
+                { email, SectionName },
+                { $set: styles },  // Directly updating using the styles object
+                { new: true }      // Returns the updated document
+            );
+            return reply.status(200).send({ message: "Updated Successfully", success: true });
+        }
+    } catch (err) {
+        console.error(err);
+        return reply.status(500).send({ message: "Server error", success: false });
+    }
+};
+
 
 module.exports=_exports

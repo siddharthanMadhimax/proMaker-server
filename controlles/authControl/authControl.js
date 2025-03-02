@@ -18,6 +18,10 @@ _exports.signUpControl=async(request,reply)=>{
         if(existingUser){
             return reply.send({message:"user already exists",success:false})
         }
+        const userUsed=await userSignUpSchema.findOne({name})
+        if(userUsed){
+            return reply.send({message:"user name is already present",success:false})
+        }
         if(password.length<8){
             return reply.send({message:"password is weak please enter more than 8 character" ,success:"passweek"})
         }
